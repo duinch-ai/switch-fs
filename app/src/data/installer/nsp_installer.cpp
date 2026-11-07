@@ -2,9 +2,73 @@
 #include <borealis.hpp>
 #include <fstream>
 #include <cstring>
+#include <algorithm>
 
 #if defined(__SWITCH__)
 #include <switch.h>
+
+// Custom IPC wrappers cho ES service (Electronic Software Distribution / Ticket import)
+static Service g_esService;
+static bool g_esInitialized = false;
+
+static Result esInit(void) {
+    if (g_esInitialized) return 0;
+    Result rc = smGetService(&g_esService, "es");
+    if (R_SUCCEEDED(rc)) g_esInitialized = true;
+    return rc;
+}
+
+static void esClose(void) {
+    if (g_esInitialized) {
+        serviceClose(&g_esService);
+        g_esInitialized = false;
+    }
+}
+
+static Result esImportTicketIpc(const void* ticket, size_t ticket_size, const void* cert, size_t cert_size) {
+    if (!g_esInitialized) return MAKERESULT(Module_Libnx, LibnxError_NotInitialized);
+    return serviceDispatch(&g_esService, 1,
+        .buffer_attrs = {
+            SfBufferAttr_HipcMapAlias | SfBufferAttr_In,
+            SfBufferAttr_HipcMapAlias | SfBufferAttr_In,
+        },
+        .buffers = {
+            { ticket, ticket_size },
+            { cert, cert_size },
+        },
+    );
+}
+
+// Custom IPC wrappers cho NS Application Management (ns:am2 / ns:am)
+static Service g_nsAmService;
+static bool g_nsAmInitialized = false;
+
+static Result nsAmInit(void) {
+    if (g_nsAmInitialized) return 0;
+    Result rc = smGetService(&g_nsAmService, "ns:am2");
+    if (R_FAILED(rc)) {
+        rc = smGetService(&g_nsAmService, "ns:am");
+    }
+    if (R_SUCCEEDED(rc)) g_nsAmInitialized = true;
+    return rc;
+}
+
+static void nsAmClose(void) {
+    if (g_nsAmInitialized) {
+        serviceClose(&g_nsAmService);
+        g_nsAmInitialized = false;
+    }
+}
+
+static Result nsPushRecordIpc(uint64_t title_id, uint8_t storage_id) {
+    if (!g_nsAmInitialized) return MAKERESULT(Module_Libnx, LibnxError_NotInitialized);
+    struct {
+        uint8_t storage_id;
+        uint8_t pad[7];
+        uint64_t title_id;
+    } in = { storage_id, {0}, title_id };
+    return serviceDispatchIn(&g_nsAmService, 16, in);
+}
 #endif
 
 namespace switchfs::data {
@@ -75,17 +139,17 @@ std::vector<NspFileEntry> NspInstaller::parsePfs0(const std::string& path) {
 bool NspInstaller::importTicket(const std::vector<uint8_t>& ticket, const std::vector<uint8_t>& cert) {
 #if defined(__SWITCH__)
     if (ticket.empty()) return true; // Ticketless dump
-    Result rc = esInitialize();
+    Result rc = esInit();
     if (R_FAILED(rc)) {
-        brls::Logger::error("NspInstaller: esInitialize thất bại: 0x{:x}", rc);
+        brls::Logger::warning("NspInstaller: esInit thông báo: 0x{:x}", rc);
         return false;
     }
 
-    rc = esImportTicket(ticket.data(), ticket.size(), cert.data(), cert.size());
-    esExit();
+    rc = esImportTicketIpc(ticket.data(), ticket.size(), cert.data(), cert.size());
+    esClose();
 
     if (R_FAILED(rc)) {
-        brls::Logger::warning("NspInstaller: esImportTicket thông báo: 0x{:x}", rc);
+        brls::Logger::warning("NspInstaller: esImportTicketIpc thông báo: 0x{:x}", rc);
     } else {
         brls::Logger::info("NspInstaller: Nạp Ticket & Cert thành công");
     }
@@ -113,7 +177,6 @@ bool NspInstaller::writeNcaToStorage(const std::string& nsp_path, const NspFileE
         return false;
     }
 
-    // Stream NCA chunks
     std::ifstream file(nsp_path, std::ios::binary);
     file.seekg(entry.offset);
 
@@ -132,7 +195,7 @@ bool NspInstaller::writeNcaToStorage(const std::string& nsp_path, const NspFileE
         }
     }
 
-    serviceClose(&cs.s);
+    ncmContentStorageClose(&cs);
     ncmExit();
     return true;
 #else
@@ -146,23 +209,19 @@ bool NspInstaller::writeNcaToStorage(const std::string& nsp_path, const NspFileE
 
 bool NspInstaller::registerApplication(uint64_t title_id, InstallStorage storage) {
 #if defined(__SWITCH__)
-    Result rc = nsInitialize();
+    if (title_id == 0) return true;
+    Result rc = nsAmInit();
     if (R_FAILED(rc)) {
-        brls::Logger::error("NspInstaller: nsInitialize thất bại: 0x{:x}", rc);
+        brls::Logger::warning("NspInstaller: nsAmInit thất bại: 0x{:x}", rc);
         return false;
     }
 
-    NsApplicationRecord record;
-    std::memset(&record, 0, sizeof(record));
-    record.application_id = title_id;
-    record.type = NsApplicationType_Application;
-
-    NcmStorageId storage_id = (storage == InstallStorage::SD_CARD) ? NcmStorageId_SdCard : NcmStorageId_BuiltInUser;
-    rc = nsPushApplicationRecord(title_id, (uint8_t)storage_id, &record);
-    nsExit();
+    uint8_t sid = (storage == InstallStorage::SD_CARD) ? 3 : 2; // 3 = SD Card, 2 = NAND User
+    rc = nsPushRecordIpc(title_id, sid);
+    nsAmClose();
 
     if (R_FAILED(rc)) {
-        brls::Logger::warning("NspInstaller: nsPushApplicationRecord thông báo: 0x{:x}", rc);
+        brls::Logger::warning("NspInstaller: nsPushRecord thông báo: 0x{:x}", rc);
     } else {
         brls::Logger::info("NspInstaller: Đã đăng ký game Title ID 0x{:016x} vào Home Menu Switch", title_id);
     }
@@ -200,7 +259,6 @@ bool NspInstaller::installNsp(const std::string& nsp_path, InstallStorage storag
             file.read(reinterpret_cast<char*>(cert.data()), entry.size);
         } else if (entry.filename.find(".cnmt.nca") != std::string::npos) {
             ncas.push_back(entry);
-            // Trích xuất Title ID từ 16 ký tự đầu của filename nếu có dạng 0100...
             try {
                 if (entry.filename.length() >= 16) {
                     title_id = std::stoull(entry.filename.substr(0, 16), nullptr, 16);
@@ -214,7 +272,6 @@ bool NspInstaller::installNsp(const std::string& nsp_path, InstallStorage storag
     if (progress_cb) progress_cb(5.0f, "Đang nạp Ticket bản quyền...");
     importTicket(ticket, cert);
 
-    // Ghi từng NCA vào hệ thống
     for (size_t i = 0; i < ncas.size(); ++i) {
         if (progress_cb) {
             float base_pct = 10.0f + ((float)i / (float)ncas.size()) * 80.0f;
