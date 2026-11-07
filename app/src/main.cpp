@@ -12,8 +12,17 @@
 #include <unistd.h>
 
 int main(int argc, char* argv[]) {
+#if defined(__SWITCH__)
+    FILE* log_file = fopen("/switch/SwitchFS/switchfs.log", "w");
+    if (log_file) {
+        brls::Logger::setLogOutput(log_file);
+    } else {
+        brls::Logger::setLogOutput(stdout);
+    }
+#else
     // Set stdout log output and debug level
     brls::Logger::setLogOutput(stdout);
+#endif
     brls::Logger::setLogLevel(brls::LogLevel::LOG_DEBUG);
 
     char cwd[1024];

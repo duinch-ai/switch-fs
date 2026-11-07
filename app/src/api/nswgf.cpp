@@ -3,14 +3,14 @@
 #include <curl/curl.h>
 #include <borealis.hpp>
 #include <borealis/extern/nlohmann/json.hpp>
-#include <regex>
+#include <cctype>
+#include <algorithm>
 
 namespace switchfs::api {
 
 const std::string NswgfApi::BASE_URL = "https://nswgf.com/wp-json/wp/v2";
 
 static std::string decodeHtmlEntities(std::string str) {
-    // Decode common HTML entities like &#8211;, &amp;, etc.
     static const std::vector<std::pair<std::string, std::string>> entities = {
         {"&amp;", "&"},
         {"&quot;", "\""},
@@ -33,72 +33,164 @@ static std::string decodeHtmlEntities(std::string str) {
     return str;
 }
 
+static std::string extractCoverUrl(const std::string& html) {
+    size_t img_pos = html.find("<img");
+    if (img_pos != std::string::npos) {
+        size_t src_pos = html.find("src=", img_pos);
+        if (src_pos != std::string::npos) {
+            src_pos += 4;
+            if (src_pos < html.length()) {
+                char quote = html[src_pos];
+                if (quote == '"' || quote == '\'') {
+                    src_pos++;
+                    size_t end_quote = html.find(quote, src_pos);
+                    if (end_quote != std::string::npos) {
+                        return html.substr(src_pos, end_quote - src_pos);
+                    }
+                }
+            }
+        }
+    }
+    return "";
+}
+
+static std::string extractSize(const std::string& html) {
+    std::string lower = html;
+    for (char& c : lower) c = (char)std::tolower((unsigned char)c);
+
+    size_t pos = lower.find("size");
+    if (pos == std::string::npos) pos = lower.find("dung l");
+    if (pos != std::string::npos) {
+        size_t window_end = std::min(lower.length(), pos + 300);
+        for (const std::string& unit : {"gb", "mb", "kb"}) {
+            size_t u_pos = lower.find(unit, pos);
+            if (u_pos != std::string::npos && u_pos < window_end) {
+                size_t num_end = u_pos;
+                while (num_end > pos && (lower[num_end - 1] == ' ' || lower[num_end - 1] == '\t')) {
+                    num_end--;
+                }
+                size_t num_start = num_end;
+                while (num_start > pos && (std::isdigit((unsigned char)lower[num_start - 1]) || lower[num_start - 1] == '.')) {
+                    num_start--;
+                }
+                if (num_start < num_end) {
+                    std::string num_str = html.substr(num_start, num_end - num_start);
+                    std::string unit_str = html.substr(u_pos, unit.length());
+                    for (char& c : unit_str) c = (char)std::toupper((unsigned char)c);
+                    return num_str + " " + unit_str;
+                }
+            }
+        }
+    }
+    return "Unknown";
+}
+
+static std::string extractLanguage(const std::string& html) {
+    std::string lower = html;
+    for (char& c : lower) c = (char)std::tolower((unsigned char)c);
+
+    size_t pos = lower.find("language");
+    if (pos == std::string::npos) pos = lower.find("ngôn ng");
+    if (pos != std::string::npos) {
+        size_t window_end = std::min(lower.length(), pos + 250);
+        size_t colon = lower.find(':', pos);
+        if (colon != std::string::npos && colon < window_end) {
+            pos = colon + 1;
+        } else {
+            size_t tag = lower.find('>', pos);
+            if (tag != std::string::npos && tag < window_end) {
+                pos = tag + 1;
+            }
+        }
+        while (pos < window_end && (html[pos] == ' ' || html[pos] == '<')) {
+            if (html[pos] == '<') {
+                size_t close = html.find('>', pos);
+                if (close == std::string::npos || close >= window_end) break;
+                pos = close + 1;
+            } else {
+                pos++;
+            }
+        }
+        size_t val_end = pos;
+        while (val_end < window_end && html[val_end] != '<' && html[val_end] != '\n' && html[val_end] != '\r') {
+            val_end++;
+        }
+        if (val_end > pos) {
+            std::string lang = html.substr(pos, val_end - pos);
+            while (!lang.empty() && (lang.front() == ' ' || lang.front() == ':')) lang.erase(0, 1);
+            while (!lang.empty() && (lang.back() == ' ' || lang.back() == ',')) lang.pop_back();
+            if (!lang.empty()) return lang;
+        }
+    }
+    return "Multi";
+}
+
+static std::vector<DownloadLink> extractDownloadLinks(const std::string& html) {
+    std::vector<DownloadLink> links;
+    static const std::vector<std::string> hosts = {
+        "gofile.io", "1fichier.com", "send.now", "megaup.net", "datanodes.to", "mediafire.com"
+    };
+
+    size_t pos = 0;
+    while ((pos = html.find("href=", pos)) != std::string::npos) {
+        pos += 5;
+        if (pos >= html.length()) break;
+        char quote = html[pos];
+        if (quote != '"' && quote != '\'') continue;
+        pos++;
+        size_t end_quote = html.find(quote, pos);
+        if (end_quote == std::string::npos) break;
+
+        std::string raw_url = html.substr(pos, end_quote - pos);
+        pos = end_quote + 1;
+
+        for (const auto& h : hosts) {
+            if (raw_url.find(h) != std::string::npos) {
+                size_t amp_pos = 0;
+                while ((amp_pos = raw_url.find("&amp;", amp_pos)) != std::string::npos) {
+                    raw_url.replace(amp_pos, 5, "&");
+                    amp_pos += 1;
+                }
+
+                DownloadLink dl;
+                dl.url = raw_url;
+                if (h == "gofile.io") dl.host_name = "Gofile";
+                else if (h == "1fichier.com") dl.host_name = "1fichier";
+                else if (h == "send.now") dl.host_name = "Send.now";
+                else if (h == "megaup.net") dl.host_name = "MegaUp";
+                else if (h == "datanodes.to") dl.host_name = "Datanodes";
+                else dl.host_name = "Direct";
+
+                links.push_back(dl);
+                break;
+            }
+        }
+    }
+    return links;
+}
+
 GameItem NswgfApi::parsePostContent(uint64_t id, const std::string& title, const std::string& date, const std::string& html_content) {
     GameItem item;
     item.id = id;
     item.title = decodeHtmlEntities(title);
-    item.date = date.substr(0, 10); // Lấy YYYY-MM-DD
+    item.date = date.substr(0, 10);
 
-    // 1. Bóc tách ảnh bìa (thẻ img đầu tiên)
-    std::regex img_regex(R"(<img[^>]+src=["']([^"'<>\s]+)["'])", std::regex::icase);
-    std::smatch img_match;
-    if (std::regex_search(html_content, img_match, img_regex) && img_match.size() > 1) {
-        item.cover_url = img_match[1].str();
-    }
+    // 1. Cover URL
+    item.cover_url = extractCoverUrl(html_content);
 
-    // 2. Bóc tách Format (NSP, XCI, NSZ)
+    // 2. Format (NSP, XCI, NSZ)
     if (html_content.find("XCI") != std::string::npos) item.format = "XCI";
     else if (html_content.find("NSZ") != std::string::npos) item.format = "NSZ";
     else item.format = "NSP";
 
-    // 3. Bóc tách Size (Dung lượng)
-    std::regex size_regex(R"((?:size|dung lượng)[\s\S]*?(?:<td[^>]*>[\s\S]*?<span[^>]*>|:\s*)([\d\.]+\s*(?:GB|MB|KB)))", std::regex::icase);
-    std::smatch size_match;
-    if (std::regex_search(html_content, size_match, size_regex) && size_match.size() > 1) {
-        item.size = size_match[1].str();
-    } else {
-        item.size = "Unknown";
-    }
+    // 3. Size
+    item.size = extractSize(html_content);
 
-    // 4. Bóc tách Language
-    std::regex lang_regex(R"((?:language|languages|ngôn ngữ)[\s\S]*?(?:<td[^>]*>[\s\S]*?<span[^>]*>|:\s*)([a-zA-Z,\s]+?)(?:<|$|\n|\r))", std::regex::icase);
-    std::smatch lang_match;
-    if (std::regex_search(html_content, lang_match, lang_regex) && lang_match.size() > 1) {
-        std::string l = lang_match[1].str();
-        // Trim trailing spaces/punctuation
-        while (!l.empty() && (l.back() == ' ' || l.back() == ',')) l.pop_back();
-        item.language = l;
-    } else {
-        item.language = "Multi";
-    }
+    // 4. Language
+    item.language = extractLanguage(html_content);
 
-    // 5. Bóc tách danh sách Download Host links
-    std::regex link_regex(R"(href=["'](https?://(?:1fichier|megaup|gofile|send\.now|datanodes|mediafire)[^"'<>\s]+)["'])", std::regex::icase);
-    auto words_begin = std::sregex_iterator(html_content.begin(), html_content.end(), link_regex);
-    auto words_end = std::sregex_iterator();
-
-    for (std::sregex_iterator it = words_begin; it != words_end; ++it) {
-        std::smatch match = *it;
-        std::string raw_url = match[1].str();
-        // Decode &amp; in URLs
-        size_t amp_pos = 0;
-        while ((amp_pos = raw_url.find("&amp;", amp_pos)) != std::string::npos) {
-            raw_url.replace(amp_pos, 5, "&");
-            amp_pos += 1;
-        }
-
-        DownloadLink dl;
-        dl.url = raw_url;
-
-        if (raw_url.find("gofile.io") != std::string::npos) dl.host_name = "Gofile";
-        else if (raw_url.find("1fichier.com") != std::string::npos) dl.host_name = "1fichier";
-        else if (raw_url.find("send.now") != std::string::npos) dl.host_name = "Send.now";
-        else if (raw_url.find("megaup.net") != std::string::npos) dl.host_name = "MegaUp";
-        else if (raw_url.find("datanodes.to") != std::string::npos) dl.host_name = "Datanodes";
-        else dl.host_name = "Direct";
-
-        item.download_links.push_back(dl);
-    }
+    // 5. Download Links
+    item.download_links = extractDownloadLinks(html_content);
 
     return item;
 }

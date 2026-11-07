@@ -1,6 +1,10 @@
 #if defined(__SWITCH__)
+#include <switch.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+// Increase main thread stack size from default 128KB to 4MB for Borealis C++ GUI
+extern "C" u32 __nx_applet_stack_size = 0x400000;
 
 struct passwd;
 struct group;
