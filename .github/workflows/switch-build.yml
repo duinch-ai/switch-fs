@@ -19,8 +19,7 @@ jobs:
           submodules: recursive
       - name: Install Switch Dependencies
         run: |
-          dkp-pacman --noconfirm -Syu
-          dkp-pacman --noconfirm -S switch-curl switch-mbedtls switch-libarchive switch-pkg-config
+          dkp-pacman --noconfirm -S --needed switch-curl switch-mbedtls switch-libarchive switch-pkg-config || true
           git config --system --add safe.directory $GITHUB_WORKSPACE
       - name: Build NRO
         run: |
