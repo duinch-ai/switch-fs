@@ -199,9 +199,9 @@ bool NspInstaller::writeNcaToStorage(const std::string& nsp_path, const NspFileE
     ncmExit();
     return true;
 #else
-    brls::Logger::info("[SIMULATOR] Ghi NCA: {} ({} bytes)", entry.filename, entry.size);
+    brls::Logger::info("[SIMULATOR] Write NCA: {} ({} bytes)", entry.filename, entry.size);
     if (progress_cb) {
-        progress_cb(100.0f, "Đã ghi xong: " + entry.filename);
+        progress_cb(100.0f, "Written: " + entry.filename);
     }
     return true;
 #endif
@@ -212,7 +212,7 @@ bool NspInstaller::registerApplication(uint64_t title_id, InstallStorage storage
     if (title_id == 0) return true;
     Result rc = nsAmInit();
     if (R_FAILED(rc)) {
-        brls::Logger::warning("NspInstaller: nsAmInit thất bại: 0x{:x}", rc);
+        brls::Logger::warning("NspInstaller: nsAmInit failed: 0x{:x}", rc);
         return false;
     }
 
@@ -221,23 +221,23 @@ bool NspInstaller::registerApplication(uint64_t title_id, InstallStorage storage
     nsAmClose();
 
     if (R_FAILED(rc)) {
-        brls::Logger::warning("NspInstaller: nsPushRecord thông báo: 0x{:x}", rc);
+        brls::Logger::warning("NspInstaller: nsPushRecord result: 0x{:x}", rc);
     } else {
-        brls::Logger::info("NspInstaller: Đã đăng ký game Title ID 0x{:016x} vào Home Menu Switch", title_id);
+        brls::Logger::info("NspInstaller: Registered Title ID 0x{:016x} to Switch Home Menu", title_id);
     }
     return true;
 #else
-    brls::Logger::info("[SIMULATOR] Đã đăng ký game Title ID 0x{:016x} lên màn hình chính Horizon", title_id);
+    brls::Logger::info("[SIMULATOR] Registered Title ID 0x{:016x} to Horizon Home Menu", title_id);
     return true;
 #endif
 }
 
 bool NspInstaller::installNsp(const std::string& nsp_path, InstallStorage storage, ProgressCallback progress_cb) {
-    brls::Logger::info("NspInstaller: Bắt đầu cài đặt {}", nsp_path);
+    brls::Logger::info("NspInstaller: Starting install of {}", nsp_path);
 
     auto entries = parsePfs0(nsp_path);
     if (entries.empty()) {
-        brls::Logger::error("NspInstaller: Không thể phân tích gói NSP: {}", nsp_path);
+        brls::Logger::error("NspInstaller: Failed to parse NSP package: {}", nsp_path);
         return false;
     }
 
@@ -269,22 +269,22 @@ bool NspInstaller::installNsp(const std::string& nsp_path, InstallStorage storag
         }
     }
 
-    if (progress_cb) progress_cb(5.0f, "Đang nạp Ticket bản quyền...");
+    if (progress_cb) progress_cb(5.0f, "Importing title ticket & cert...");
     importTicket(ticket, cert);
 
     for (size_t i = 0; i < ncas.size(); ++i) {
         if (progress_cb) {
             float base_pct = 10.0f + ((float)i / (float)ncas.size()) * 80.0f;
-            progress_cb(base_pct, "Đang cài đặt: " + ncas[i].filename);
+            progress_cb(base_pct, "Installing: " + ncas[i].filename);
         }
         writeNcaToStorage(nsp_path, ncas[i], storage, progress_cb);
     }
 
-    if (progress_cb) progress_cb(95.0f, "Đang đăng ký lên Home Menu Switch...");
+    if (progress_cb) progress_cb(95.0f, "Registering to Switch Home Menu...");
     registerApplication(title_id, storage);
 
-    if (progress_cb) progress_cb(100.0f, "Cài đặt hoàn tất!");
-    brls::Logger::info("NspInstaller: Cài đặt hoàn tất thành công cho {}", nsp_path);
+    if (progress_cb) progress_cb(100.0f, "Installation complete!");
+    brls::Logger::info("NspInstaller: Successfully installed {}", nsp_path);
     return true;
 }
 

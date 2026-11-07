@@ -16,7 +16,7 @@ HomeTab::HomeTab() {
 
     // Status / Loading label
     this->status_label = new brls::Label();
-    this->status_label->setText("Đang tải danh sách game từ nswgf.com...");
+    this->status_label->setText("Loading game catalog from nswgf.com...");
     this->status_label->setFontSize(18);
     this->status_label->setMarginBottom(15);
     this->content_box->addView(this->status_label);
@@ -28,7 +28,7 @@ HomeTab::HomeTab() {
 
     // Load More Button
     this->load_more_btn = new brls::Button();
-    this->load_more_btn->setText("Tải thêm game (Trang tiếp theo)");
+    this->load_more_btn->setText("Load more games (Next page)");
     this->load_more_btn->setHeight(48);
     this->load_more_btn->setStyle(&brls::BUTTONSTYLE_PRIMARY);
     this->load_more_btn->setMarginTop(15);
@@ -55,7 +55,7 @@ brls::View* HomeTab::create() {
 void HomeTab::loadGames(int page) {
     if (this->is_loading) return;
     this->is_loading = true;
-    this->status_label->setText("Đang kết nối API nswgf.com...");
+    this->status_label->setText("Connecting to nswgf.com API...");
     brls::Logger::info("HomeTab: Loading page {} from nswgf.com...", page);
 
     brls::async([this, page]() {
@@ -65,18 +65,18 @@ void HomeTab::loadGames(int page) {
         brls::sync([this, games, page]() {
             this->is_loading = false;
             if (games.empty()) {
-                this->status_label->setText("Không thể kết nối hoặc không có dữ liệu từ nswgf.com.");
+                this->status_label->setText("Unable to connect or no data returned from nswgf.com.");
                 return;
             }
 
-            this->status_label->setText("Trang " + std::to_string(page) + " • Tìm thấy " + std::to_string(games.size()) + " game mới");
+            this->status_label->setText("Page " + std::to_string(page) + " • Found " + std::to_string(games.size()) + " games");
             this->current_page = page;
 
-            // Xếp các thẻ game theo hàng (4 thẻ mỗi hàng)
-            brls::Box* current_row = nullptr;
+            // Arrange cards in 4-column rows
+            GridRow* current_row = nullptr;
             for (size_t i = 0; i < games.size(); ++i) {
                 if (i % 4 == 0) {
-                    current_row = new brls::Box(brls::Axis::ROW);
+                    current_row = new GridRow();
                     current_row->setMarginBottom(15);
                     this->grid_container->addView(current_row);
                 }
@@ -86,7 +86,7 @@ void HomeTab::loadGames(int page) {
                 }
             }
             if (this->load_more_btn) {
-                this->load_more_btn->setText("Tải thêm game (Trang " + std::to_string(this->current_page + 1) + ")");
+                this->load_more_btn->setText("Load more games (Page " + std::to_string(this->current_page + 1) + ")");
                 this->load_more_btn->setVisibility(brls::Visibility::VISIBLE);
             }
             brls::Logger::info("HomeTab: Rendered {} game cards", games.size());

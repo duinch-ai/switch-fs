@@ -2,6 +2,7 @@
 #include "data/extractor/archive_extractor.hpp"
 #include "data/installer/nsp_installer.hpp"
 #include "data/settings_manager.hpp"
+#include <borealis.hpp>
 #include <iostream>
 #include <cassert>
 #include <fstream>

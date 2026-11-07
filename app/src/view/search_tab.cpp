@@ -10,7 +10,7 @@ SearchTab::SearchTab() {
 
     // 1. Search Bar Button
     this->search_btn = new brls::Button();
-    this->search_btn->setText("🔍  Nhấn A để nhập từ khóa tìm kiếm...");
+    this->search_btn->setText("🔍  Press (A) to enter search keyword...");
     this->search_btn->setHeight(50);
     this->search_btn->setMarginBottom(15);
     this->search_btn->setStyle(&brls::BUTTONSTYLE_PRIMARY);
@@ -20,7 +20,7 @@ SearchTab::SearchTab() {
             if (!text.empty()) {
                 this->performSearch(text);
             }
-        }, "Tìm kiếm game Switch", "Nhập tên tựa game cần tìm", 64, this->current_keyword);
+        }, "Search Nintendo Switch Games", "Enter game title to search", 64, this->current_keyword);
         return true;
     });
 
@@ -28,7 +28,7 @@ SearchTab::SearchTab() {
 
     // 2. Status Label
     this->status_label = new brls::Label();
-    this->status_label->setText("Nhập từ khóa để tra cứu hơn 15.800+ tựa game trên nswgf.com");
+    this->status_label->setText("Enter keywords to search across 15,800+ titles on nswgf.com");
     this->status_label->setFontSize(18);
     this->status_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
     this->status_label->setMarginBottom(15);
@@ -58,8 +58,8 @@ void SearchTab::performSearch(const std::string& keyword) {
     this->is_searching = true;
     this->current_keyword = keyword;
 
-    this->search_btn->setText("🔍  " + keyword + " (Bấm A để đổi từ khóa)");
-    this->status_label->setText("Đang tìm kiếm '" + keyword + "' trên nswgf.com...");
+    this->search_btn->setText("🔍  " + keyword + " (Press A to change keyword)");
+    this->status_label->setText("Searching for '" + keyword + "' on nswgf.com...");
 
     // Clear previous results
     this->grid_container->clearViews();
@@ -70,17 +70,17 @@ void SearchTab::performSearch(const std::string& keyword) {
         brls::sync([this, games, keyword]() {
             this->is_searching = false;
             if (games.empty()) {
-                this->status_label->setText("Không tìm thấy game nào với từ khóa '" + keyword + "'.");
+                this->status_label->setText("No games found matching '" + keyword + "'.");
                 return;
             }
 
-            this->status_label->setText("Tìm thấy " + std::to_string(games.size()) + " kết quả cho '" + keyword + "':");
+            this->status_label->setText("Found " + std::to_string(games.size()) + " results for '" + keyword + "':");
 
             // Arrange cards in 4-column rows
-            brls::Box* current_row = nullptr;
+            GridRow* current_row = nullptr;
             for (size_t i = 0; i < games.size(); ++i) {
                 if (i % 4 == 0) {
-                    current_row = new brls::Box(brls::Axis::ROW);
+                    current_row = new GridRow();
                     current_row->setMarginBottom(15);
                     this->grid_container->addView(current_row);
                 }

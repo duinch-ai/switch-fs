@@ -174,7 +174,7 @@ void DownloadManager::processTask(DownloadTask& task) {
     FILE* fp = fopen(task.dest_path.c_str(), "ab+");
     if (!fp) {
         task.state = DownloadState::FAILED;
-        task.error_message = "Không thể mở file đích: " + task.dest_path;
+        task.error_message = "Cannot open destination file: " + task.dest_path;
         brls::Logger::error("DownloadManager error: {}", task.error_message);
         return;
     }
@@ -186,7 +186,7 @@ void DownloadManager::processTask(DownloadTask& task) {
     if (!curl) {
         fclose(fp);
         task.state = DownloadState::FAILED;
-        task.error_message = "Khởi tạo curl thất bại";
+        task.error_message = "Failed to initialize curl";
         return;
     }
 
@@ -231,15 +231,14 @@ void DownloadManager::processTask(DownloadTask& task) {
         task.speed_bps = 0.0;
         brls::Logger::info("DownloadManager: Task completed successfully: {}", task.title);
 
-        // Tự động giải nén file archive (.rar, .zip) nếu có
+        // Auto-extract archive (.rar, .zip) if applicable
         std::string nsp_target = task.dest_path;
         if (data::ArchiveExtractor::isArchive(task.dest_path)) {
-            brls::Logger::info("DownloadManager: Đang tự động giải nén: {}", task.dest_path);
+            brls::Logger::info("DownloadManager: Auto-extracting: {}", task.dest_path);
             std::string extract_dir = getDownloadDir() + "extracted/" + task.title + "/";
             bool ok = data::ArchiveExtractor::extract(task.dest_path, extract_dir);
             if (ok) {
-                brls::Logger::info("DownloadManager: Giải nén thành công vào: {}", extract_dir);
-                // Tìm file .nsp hoặc .nsz trong thư mục vừa giải nén
+                brls::Logger::info("DownloadManager: Extracted successfully to: {}", extract_dir);
                 for (const auto& entry : std::filesystem::directory_iterator(extract_dir)) {
                     std::string path_str = entry.path().string();
                     if (path_str.rfind(".nsp") != std::string::npos || path_str.rfind(".nsz") != std::string::npos) {
@@ -248,17 +247,17 @@ void DownloadManager::processTask(DownloadTask& task) {
                     }
                 }
             } else {
-                brls::Logger::warning("DownloadManager: Không thể giải nén archive: {}", task.dest_path);
+                brls::Logger::warning("DownloadManager: Failed to extract archive: {}", task.dest_path);
             }
         }
 
-        // Tự động cài đặt game vào Switch (SD Card) nếu bật auto_install
+        // Auto-install game to Switch if auto_install is enabled
         if (task.auto_install && !nsp_target.empty()) {
-            brls::Logger::info("DownloadManager: Bắt đầu tự động cài đặt game vào máy: {}", nsp_target);
+            brls::Logger::info("DownloadManager: Starting auto-install: {}", nsp_target);
             bool installed = data::NspInstaller::installNsp(nsp_target, data::InstallStorage::SD_CARD);
             if (installed) {
                 brls::sync([task]() {
-                    brls::Application::notify("Đã cài đặt thành công [" + task.title + "] vào màn hình chính Switch!");
+                    brls::Application::notify("Successfully installed [" + task.title + "] to Switch Home Menu!");
                 });
             }
         }

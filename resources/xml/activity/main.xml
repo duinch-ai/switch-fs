@@ -5,21 +5,21 @@
         title="Switch FS"
         icon="@res/icon.png">
 
-        <brls:Tab label="Trang chủ">
+        <brls:Tab label="&#xE88A;">
             <HomeTab />
         </brls:Tab>
 
-        <brls:Tab label="Tìm kiếm">
+        <brls:Tab label="&#xE8B6;">
             <SearchTab />
         </brls:Tab>
 
-        <brls:Tab label="Hàng đợi">
+        <brls:Tab label="&#xE2C4;">
             <QueueTab />
         </brls:Tab>
 
         <brls:Separator />
 
-        <brls:Tab label="Cài đặt">
+        <brls:Tab label="&#xE8B8;">
             <SettingsTab />
         </brls:Tab>
 

@@ -26,7 +26,7 @@ QueueTab::QueueTab() {
 
     // Status label
     this->status_label = new brls::Label();
-    this->status_label->setText("Hàng đợi tải xuống");
+    this->status_label->setText("Download Queue");
     this->status_label->setFontSize(22);
     this->status_label->setTextColor(brls::Application::getTheme()["brls/text"]);
     this->status_label->setMarginBottom(15);
@@ -68,7 +68,7 @@ void QueueTab::refreshList() {
 
     if (tasks.empty()) {
         auto* empty_label = new brls::Label();
-        empty_label->setText("Chưa có tác vụ tải xuống nào.\nHãy vào tab Trang chủ hoặc Tìm kiếm để chọn game.");
+        empty_label->setText("No active download tasks.\nBrowse Home or Search to find games.");
         empty_label->setFontSize(16);
         empty_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
         empty_label->setMarginTop(30);
@@ -104,11 +104,11 @@ void QueueTab::refreshList() {
         // Progress text & speed
         std::string status_str;
         switch (task.state) {
-            case download::DownloadState::PENDING: status_str = "Đang chờ..."; break;
-            case download::DownloadState::DOWNLOADING: status_str = "Đang tải..."; break;
-            case download::DownloadState::PAUSED: status_str = "Tạm dừng"; break;
-            case download::DownloadState::COMPLETED: status_str = "Đã hoàn thành!"; break;
-            case download::DownloadState::FAILED: status_str = "Lỗi: " + task.error_message; break;
+            case download::DownloadState::PENDING: status_str = "Pending..."; break;
+            case download::DownloadState::DOWNLOADING: status_str = "Downloading..."; break;
+            case download::DownloadState::PAUSED: status_str = "Paused"; break;
+            case download::DownloadState::COMPLETED: status_str = "Completed!"; break;
+            case download::DownloadState::FAILED: status_str = "Error: " + task.error_message; break;
         }
 
         std::string progress_info = status_str;
@@ -133,7 +133,6 @@ void QueueTab::refreshList() {
         bar_outer->setCornerRadius(4);
         bar_outer->setMarginBottom(12);
 
-        // Simple progress bar representation via width percentage
         float pct = std::max(0.0, std::min(100.0, task.progress)) / 100.0f;
         auto* bar_fill = new brls::Box(brls::Axis::ROW);
         bar_fill->setHeight(8);
@@ -147,7 +146,7 @@ void QueueTab::refreshList() {
 
         if (task.state == download::DownloadState::DOWNLOADING) {
             auto* pause_btn = new brls::Button();
-            pause_btn->setText("Tạm dừng");
+            pause_btn->setText("Pause");
             pause_btn->setHeight(36);
             pause_btn->setMarginRight(10);
             pause_btn->registerClickAction([task](brls::View* view) {
@@ -157,7 +156,7 @@ void QueueTab::refreshList() {
             actions_row->addView(pause_btn);
         } else if (task.state == download::DownloadState::PAUSED) {
             auto* resume_btn = new brls::Button();
-            resume_btn->setText("Tiếp tục tải");
+            resume_btn->setText("Resume");
             resume_btn->setHeight(36);
             resume_btn->setStyle(&brls::BUTTONSTYLE_PRIMARY);
             resume_btn->setMarginRight(10);
@@ -168,16 +167,16 @@ void QueueTab::refreshList() {
             actions_row->addView(resume_btn);
         } else if (task.state == download::DownloadState::COMPLETED) {
             auto* install_btn = new brls::Button();
-            install_btn->setText("⚡ Cài đặt vào Switch");
+            install_btn->setText("⚡ Install to Switch");
             install_btn->setHeight(36);
             install_btn->setStyle(&brls::BUTTONSTYLE_PRIMARY);
             install_btn->setMarginRight(10);
             install_btn->registerClickAction([task](brls::View* view) {
-                brls::Application::notify("Đang cài đặt [" + task.title + "] vào Horizon OS...");
+                brls::Application::notify("Installing [" + task.title + "] to Horizon OS...");
                 brls::async([task]() {
                     data::NspInstaller::installNsp(task.dest_path, data::InstallStorage::SD_CARD);
                     brls::sync([task]() {
-                        brls::Application::notify("Đã cài đặt thành công [" + task.title + "] vào Home Menu!");
+                        brls::Application::notify("Successfully installed [" + task.title + "] to Home Menu!");
                     });
                 });
                 return true;
@@ -186,7 +185,7 @@ void QueueTab::refreshList() {
         }
 
         auto* cancel_btn = new brls::Button();
-        cancel_btn->setText("Hủy");
+        cancel_btn->setText("Cancel");
         cancel_btn->setHeight(36);
         cancel_btn->registerClickAction([task](brls::View* view) {
             download::DownloadManager::getInstance().cancelTask(task.id);

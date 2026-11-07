@@ -1,10 +1,14 @@
 #include "view/game_detail_activity.hpp"
 #include "download/download_manager.hpp"
 #include "utils/http.hpp"
+#include <borealis.hpp>
 
 namespace switchfs::view {
 
 GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
+}
+
+brls::View* GameDetailActivity::createContentView() {
     auto* scroll = new brls::ScrollingFrame();
     scroll->setGrow(1.0f);
 
@@ -12,40 +16,39 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
     root_box->setGrow(1.0f);
     root_box->setPadding(30, 40, 30, 40);
 
-    // Top horizontal section: Cover (Left) + Metadata (Right)
+    // Section 1: Header (Cover Image + Metadata)
     auto* top_section = new brls::Box(brls::Axis::ROW);
     top_section->setMarginBottom(30);
 
-    // 1. Cover Image
-    auto* cover = new brls::Image();
-    cover->setWidth(240);
-    cover->setHeight(320);
-    cover->setCornerRadius(10);
-    cover->setScalingType(brls::ImageScalingType::FIT);
-    cover->setImageFromRes("img/borealis_256.png");
+    // Large Cover Image
+    auto* cover_img = new brls::Image();
+    cover_img->setWidth(220);
+    cover_img->setHeight(220);
+    cover_img->setCornerRadius(10);
+    cover_img->setScalingType(brls::ImageScalingType::FIT);
+    cover_img->setMarginRight(30);
+    cover_img->setImageFromRes("img/borealis_256.png");
 
     if (!item.cover_url.empty()) {
         std::string url = item.cover_url;
-        brls::async([cover, url]() {
+        brls::async([cover_img, url]() {
             std::string data = utils::HttpClient::get(url);
             if (!data.empty()) {
-                brls::sync([cover, data]() {
-                    cover->setImageFromMem((const unsigned char*)data.data(), data.size());
+                brls::sync([cover_img, data]() {
+                    cover_img->setImageFromMem((const unsigned char*)data.data(), data.size());
                 });
             }
         });
     }
-    top_section->addView(cover);
+    top_section->addView(cover_img);
 
-    // 2. Metadata column
+    // Metadata Column
     auto* meta_col = new brls::Box(brls::Axis::COLUMN);
-    meta_col->setMarginLeft(30);
     meta_col->setGrow(1.0f);
 
-    // Title
     auto* title_label = new brls::Label();
     title_label->setText(item.title);
-    title_label->setFontSize(24);
+    title_label->setFontSize(26);
     title_label->setTextColor(brls::Application::getTheme()["brls/text"]);
     title_label->setMarginBottom(15);
     meta_col->addView(title_label);
@@ -55,21 +58,21 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
     badges_row->setMarginBottom(12);
 
     auto* format_label = new brls::Label();
-    format_label->setText("Định dạng: " + item.format);
+    format_label->setText("Format: " + item.format);
     format_label->setFontSize(16);
     format_label->setTextColor(brls::Application::getTheme()["brls/text"]);
     format_label->setMarginRight(20);
     badges_row->addView(format_label);
 
     auto* size_label = new brls::Label();
-    size_label->setText("Dung lượng: " + item.size);
+    size_label->setText("Size: " + item.size);
     size_label->setFontSize(16);
     size_label->setTextColor(brls::Application::getTheme()["brls/text"]);
     size_label->setMarginRight(20);
     badges_row->addView(size_label);
 
     auto* date_label = new brls::Label();
-    date_label->setText("Cập nhật: " + item.date);
+    date_label->setText("Updated: " + item.date);
     date_label->setFontSize(16);
     date_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
     badges_row->addView(date_label);
@@ -79,7 +82,7 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
     // Language
     if (!item.language.empty()) {
         auto* lang_label = new brls::Label();
-        lang_label->setText("Ngôn ngữ: " + item.language);
+        lang_label->setText("Language: " + item.language);
         lang_label->setFontSize(15);
         lang_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
         lang_label->setMarginBottom(10);
@@ -88,7 +91,7 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
 
     // Hint note
     auto* hint_label = new brls::Label();
-    hint_label->setText("File sau khi tải sẽ tự động kiểm tra định dạng và giải nén cài đặt.");
+    hint_label->setText("Downloaded archives are automatically extracted and installed to Horizon OS.");
     hint_label->setFontSize(14);
     hint_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
     meta_col->addView(hint_label);
@@ -98,7 +101,7 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
 
     // Section 2: Download Options
     auto* section_label = new brls::Label();
-    section_label->setText("Chọn nguồn tải xuống (Download Hosts):");
+    section_label->setText("Select Download Host:");
     section_label->setFontSize(20);
     section_label->setTextColor(brls::Application::getTheme()["brls/text"]);
     section_label->setMarginBottom(15);
@@ -106,7 +109,7 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
 
     if (item.download_links.empty()) {
         auto* empty_label = new brls::Label();
-        empty_label->setText("Không tìm thấy link tải tự động cho game này.");
+        empty_label->setText("No download links found for this title.");
         empty_label->setFontSize(16);
         empty_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
         root_box->addView(empty_label);
@@ -127,7 +130,7 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
 
             btn->registerClickAction([this, dl](brls::View* view) {
                 download::DownloadManager::getInstance().enqueue(this->item, dl.url, dl.host_name);
-                brls::Application::notify("Đã thêm [" + this->item.title + "] vào Hàng đợi tải!");
+                brls::Application::notify("Added [" + this->item.title + "] to Download Queue!");
                 return true;
             });
 
@@ -139,16 +142,10 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
     scroll->setContentView(root_box);
 
     auto* applet = new brls::AppletFrame(scroll);
-    applet->setTitle("Chi tiết tựa game");
-    applet->setIcon("@res/icon.png");
+    applet->setTitle("Game Details");
+    applet->setIcon(BRLS_ASSET("icon.png"));
 
-    // Register B button to pop activity
-    applet->registerAction("Quay lại", brls::ControllerButton::BUTTON_B, [](brls::View* view) {
-        brls::Application::popActivity();
-        return true;
-    });
-
-    this->setContentView(applet);
+    return applet;
 }
 
 } // namespace switchfs::view

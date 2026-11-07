@@ -38,6 +38,12 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    // Compact icon-only sidebar
+    brls::Application::getStyle().addMetric("brls/tab_frame/sidebar_width", 90.0f);
+    brls::Application::getStyle().addMetric("brls/sidebar/padding_left", 12.0f);
+    brls::Application::getStyle().addMetric("brls/sidebar/padding_right", 12.0f);
+    brls::Application::getStyle().addMetric("brls/sidebar/item_font_size", 26.0f);
+
     if (getcwd(cwd, sizeof(cwd))) {
         brls::Logger::info("Current working directory after init: {}", cwd);
     }
