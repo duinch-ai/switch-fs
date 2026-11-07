@@ -96,6 +96,7 @@ if (PLATFORM_DESKTOP)
         app/src/data/extractor/archive_extractor.cpp
         app/src/data/installer/nsp_installer.cpp
         app/src/data/settings_manager.cpp
+        app/src/data/remote/host_resolver.cpp
     )
     target_include_directories(switchfs_tests PRIVATE
         app/include

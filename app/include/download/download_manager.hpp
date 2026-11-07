@@ -35,6 +35,7 @@ struct DownloadTask {
     int64_t total_bytes = 0;
     std::string error_message;
     bool auto_install = true;
+    std::vector<api::DownloadLink> fallback_links;
 };
 
 class DownloadManager {

@@ -2,6 +2,7 @@
 #include "data/extractor/archive_extractor.hpp"
 #include "data/installer/nsp_installer.hpp"
 #include "data/settings_manager.hpp"
+#include "data/remote/host_resolver.hpp"
 #include <borealis.hpp>
 #include <iostream>
 #include <cassert>
@@ -97,12 +98,26 @@ void testSettingsManager() {
     TEST_ASSERT(sm.getSettings().gofile_token == "TEST_TOKEN_12345", "Settings saved and reloaded via JSON");
 }
 
+void testHostResolver() {
+    std::cout << "[TEST] Running testHostResolver..." << std::endl;
+
+    std::string digest = data::HostResolver::sha256Hex("abc");
+    TEST_ASSERT(digest == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                "SHA-256 hex digest matches NIST test vector");
+
+    auto send_res = data::HostResolver::resolve("https://send.now/zp35i838lzwq", "Send.now");
+    TEST_ASSERT(send_res.ok() && send_res.direct_url.find(".rar") != std::string::npos,
+                "Send.now resolves directly to .rar DDL stream");
+    std::cout << "    Resolved Send.now DDL: " << send_res.direct_url << " err: " << send_res.error << std::endl;
+}
+
 int main() {
     std::cout << "=== Running Switch FS Unit Test Suite ===" << std::endl;
     testNswgfParser();
     testArchiveExtractor();
     testNspInstallerValidation();
     testSettingsManager();
+    testHostResolver();
 
     std::cout << "=========================================" << std::endl;
     std::cout << "Results: " << tests_passed << "/" << tests_total << " tests passed." << std::endl;

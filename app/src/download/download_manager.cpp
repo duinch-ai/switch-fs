@@ -1,6 +1,7 @@
 #include "download/download_manager.hpp"
 #include "data/extractor/archive_extractor.hpp"
 #include "data/installer/nsp_installer.hpp"
+#include "data/remote/host_resolver.hpp"
 #include <curl/curl.h>
 #include <sys/stat.h>
 #include <chrono>
@@ -51,8 +52,9 @@ void DownloadManager::enqueue(const api::GameItem& game, const std::string& host
     task.cover_url = game.cover_url;
     task.host_name = host_name;
     task.original_url = host_url;
-    task.direct_url = host_url; // Direct or resolved URL
+    task.direct_url = host_url; // Will be resolved in worker thread
     task.state = DownloadState::PENDING;
+    task.fallback_links = game.download_links;
 
     // Sanitize title for filename
     std::string safe_title = game.title;
@@ -170,9 +172,45 @@ void DownloadManager::processTask(DownloadTask& task) {
     this->current_active_id = task.id;
     this->should_abort_current = false;
     task.state = DownloadState::DOWNLOADING;
+    this->progress_event.fire(task);
+
+    // 1. Resolve file hoster URL into direct binary stream (with automatic mirror fallback)
+    data::ResolvedStream stream = data::HostResolver::resolve(task.original_url, task.host_name, &this->should_abort_current);
+    if (!stream.ok() && !this->should_abort_current.load()) {
+        brls::Logger::warning("DownloadManager: Primary host {} failed ({}), trying mirror fallbacks...",
+                              task.host_name, stream.error);
+        // Priority order for mirrors: Send.now -> 1fichier -> Gofile -> others
+        static const std::vector<std::string> priority_hosts = {"Send.now", "1fichier", "Gofile", "MediaFire"};
+        for (const auto& ph : priority_hosts) {
+            if (this->should_abort_current.load()) break;
+            for (const auto& link : task.fallback_links) {
+                if (link.host_name == ph && link.url != task.original_url) {
+                    auto fb = data::HostResolver::resolve(link.url, link.host_name, &this->should_abort_current);
+                    if (fb.ok()) {
+                        stream = fb;
+                        task.host_name = link.host_name;
+                        brls::Logger::info("DownloadManager: Switched to working mirror [{}]", link.host_name);
+                        break;
+                    }
+                }
+            }
+            if (stream.ok()) break;
+        }
+    }
+
+    if (!stream.ok()) {
+        this->current_active_id = 0;
+        task.state = DownloadState::FAILED;
+        task.error_message = stream.error.empty() ? "Could not resolve direct download link" : stream.error;
+        this->progress_event.fire(task);
+        return;
+    }
+
+    task.direct_url = stream.direct_url;
 
     FILE* fp = fopen(task.dest_path.c_str(), "ab+");
     if (!fp) {
+        this->current_active_id = 0;
         task.state = DownloadState::FAILED;
         task.error_message = "Cannot open destination file: " + task.dest_path;
         brls::Logger::error("DownloadManager error: {}", task.error_message);
@@ -185,6 +223,7 @@ void DownloadManager::processTask(DownloadTask& task) {
     CURL* curl = curl_easy_init();
     if (!curl) {
         fclose(fp);
+        this->current_active_id = 0;
         task.state = DownloadState::FAILED;
         task.error_message = "Failed to initialize curl";
         return;
@@ -201,7 +240,7 @@ void DownloadManager::processTask(DownloadTask& task) {
 
     curl_easy_setopt(curl, CURLOPT_URL, task.direct_url.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Nintendo Switch; SwitchFS/0.1.0)");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeDataCallback);
@@ -210,11 +249,20 @@ void DownloadManager::processTask(DownloadTask& task) {
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, xferInfoCallback);
     curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ctx);
 
+    if (!stream.cookie_header.empty()) {
+        curl_easy_setopt(curl, CURLOPT_COOKIE, stream.cookie_header.c_str());
+    }
+    if (!stream.referer.empty()) {
+        curl_easy_setopt(curl, CURLOPT_REFERER, stream.referer.c_str());
+    }
+
     if (existing_bytes > 0) {
         curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, existing_bytes);
     }
 
     CURLcode res = curl_easy_perform(curl);
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     fclose(fp);
     curl_easy_cleanup(curl);
 
@@ -225,7 +273,7 @@ void DownloadManager::processTask(DownloadTask& task) {
             task.state = DownloadState::PAUSED;
         }
         brls::Logger::info("DownloadManager: Task paused/aborted: {}", task.title);
-    } else if (res == CURLE_OK) {
+    } else if (res == CURLE_OK && (http_code == 200 || http_code == 206)) {
         task.state = DownloadState::COMPLETED;
         task.progress = 100.0;
         task.speed_bps = 0.0;
