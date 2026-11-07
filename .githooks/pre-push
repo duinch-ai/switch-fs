@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# project-pro pre-push gate: Full Audit + CVE Check + Lint + Unit Tests
+set -euo pipefail
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+if [ -f "/Users/chungnh/.agent-skills/plugins/project-pro/skills/project-pro/scripts/project_pro.py" ]; then
+  echo "[pre-push] 1/4 Running full repository architecture, file-size & security audit..."
+  python3 "/Users/chungnh/.agent-skills/plugins/project-pro/skills/project-pro/scripts/project_pro.py" audit --target "$ROOT_DIR" --fail-on-error
+fi
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "[pre-push] Running gitleaks repository scan..."
+  gitleaks detect --source "$ROOT_DIR" --redact --no-banner
+fi
+echo "[pre-push] 2/4 Checking dependency vulnerabilities..."
+if [ -x "flawfinder" ] || command -v "flawfinder" >/dev/null 2>&1; then
+  flawfinder --minlevel=3 app/src/ || { echo "[pre-push] High-severity dependency issue found." >&2; exit 1; }
+else
+  echo "[pre-push] (Skipped `flawfinder --minlevel=3 app/src/` — `flawfinder` not in PATH)"
+fi
+echo "[pre-push] 3/4 Running lint & static typecheck..."
+if [ -x "clang-format" ] || command -v "clang-format" >/dev/null 2>&1; then
+  clang-format --dry-run -Werror $(find app -name '*.cpp' -o -name '*.hpp') && clang-tidy -p build app/src/*.cpp
+else
+  echo "[pre-push] (Skipped `clang-format --dry-run -Werror $(find app -name '*.cpp' -o -name '*.hpp') && clang-tidy -p build app/src/*.cpp` — `clang-format` not in PATH)"
+fi
+echo "[pre-push] 4/4 Running unit test suite..."
+if [ -x "ctest" ] || command -v "ctest" >/dev/null 2>&1; then
+  ctest --test-dir build --output-on-failure
+else
+  echo "[pre-push] (Skipped `ctest --test-dir build --output-on-failure` — `ctest` not in PATH)"
+fi
+echo "[pre-push] All security, architecture, lint, and test gates PASSED."

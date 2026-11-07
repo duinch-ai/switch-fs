@@ -1,0 +1,4 @@
+[submodule "library/borealis"]
+	path = library/borealis
+	url = https://github.com/nchungdev/borealis.git
+	branch = switchfin

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "1.2.0",
+  "generator": "project-pro",
+  "updatedAt": "2026-11-07T08:15:00Z",
+  "projectName": "switch-fs",
+  "stack": "cpp-switch",
+  "stackLabel": "C++ / Nintendo Switch Homebrew (CMake + libnx + Borealis)",
+  "architecture": "modular-clean",
+  "pattern": "mvc-borealis",
+  "referenceRepo": "dragonflylee/switchfin",
+  "referenceRepoUrl": "https://github.com/dragonflylee/switchfin",
+  "fileLineLimits": {
+    "warn": 300,
+    "fail": 450
+  },
+  "selectedFeatures": [
+    "solid-dry",
+    "typed-errors",
+    "di-core",
+    "network-storage",
+    "ui-nav",
+    "arch-lint",
+    "testing-ci"
+  ],
+  "selectedAgentTargets": [
+    "adr-docs",
+    "agent-runtime-hooks",
+    "agents-root",
+    "claude-gemini",
+    "git-security-hooks",
+    "persistent-memory"
+  ],
+  "commands": {
+    "build": "cmake --build build -j$(nproc)",
+    "test_all": "ctest --test-dir build --output-on-failure",
+    "test_single": "ctest --test-dir build -R <test_name>",
+    "lint": "clang-format --dry-run -Werror $(find app -name '*.cpp' -o -name '*.hpp') && clang-tidy -p build app/src/*.cpp",
+    "sec_audit": "flawfinder --minlevel=3 app/src/"
+  }
+}
