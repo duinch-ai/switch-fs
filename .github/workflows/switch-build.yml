@@ -28,9 +28,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DPLATFORM_SWITCH=ON \
             -DVERSION_BUILD=${{ github.run_number }}
-          make -C build switch-fs.nro -j$(nproc)
+          cmake --build build --target SwitchFS.nro -j$(nproc)
       - name: Upload NRO Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: switch-fs-Switch-${{ github.run_number }}
-          path: build/switch-fs.nro
+          name: SwitchFS-Switch-${{ github.run_number }}
+          path: build/SwitchFS.nro
