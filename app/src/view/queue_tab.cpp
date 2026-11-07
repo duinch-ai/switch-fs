@@ -1,4 +1,5 @@
 #include "view/queue_tab.hpp"
+#include "data/installer/nsp_installer.hpp"
 #include <iomanip>
 #include <sstream>
 
@@ -165,6 +166,23 @@ void QueueTab::refreshList() {
                 return true;
             });
             actions_row->addView(resume_btn);
+        } else if (task.state == download::DownloadState::COMPLETED) {
+            auto* install_btn = new brls::Button();
+            install_btn->setText("⚡ Cài đặt vào Switch");
+            install_btn->setHeight(36);
+            install_btn->setStyle(&brls::BUTTONSTYLE_PRIMARY);
+            install_btn->setMarginRight(10);
+            install_btn->registerClickAction([task](brls::View* view) {
+                brls::Application::notify("Đang cài đặt [" + task.title + "] vào Horizon OS...");
+                brls::async([task]() {
+                    data::NspInstaller::installNsp(task.dest_path, data::InstallStorage::SD_CARD);
+                    brls::sync([task]() {
+                        brls::Application::notify("Đã cài đặt thành công [" + task.title + "] vào Home Menu!");
+                    });
+                });
+                return true;
+            });
+            actions_row->addView(install_btn);
         }
 
         auto* cancel_btn = new brls::Button();

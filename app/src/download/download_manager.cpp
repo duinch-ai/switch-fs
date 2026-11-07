@@ -1,9 +1,11 @@
 #include "download/download_manager.hpp"
 #include "data/extractor/archive_extractor.hpp"
+#include "data/installer/nsp_installer.hpp"
 #include <curl/curl.h>
 #include <sys/stat.h>
 #include <chrono>
 #include <algorithm>
+#include <filesystem>
 
 namespace switchfs::download {
 
@@ -230,14 +232,34 @@ void DownloadManager::processTask(DownloadTask& task) {
         brls::Logger::info("DownloadManager: Task completed successfully: {}", task.title);
 
         // Tự động giải nén file archive (.rar, .zip) nếu có
+        std::string nsp_target = task.dest_path;
         if (data::ArchiveExtractor::isArchive(task.dest_path)) {
             brls::Logger::info("DownloadManager: Đang tự động giải nén: {}", task.dest_path);
             std::string extract_dir = getDownloadDir() + "extracted/" + task.title + "/";
             bool ok = data::ArchiveExtractor::extract(task.dest_path, extract_dir);
             if (ok) {
                 brls::Logger::info("DownloadManager: Giải nén thành công vào: {}", extract_dir);
+                // Tìm file .nsp hoặc .nsz trong thư mục vừa giải nén
+                for (const auto& entry : std::filesystem::directory_iterator(extract_dir)) {
+                    std::string path_str = entry.path().string();
+                    if (path_str.rfind(".nsp") != std::string::npos || path_str.rfind(".nsz") != std::string::npos) {
+                        nsp_target = path_str;
+                        break;
+                    }
+                }
             } else {
                 brls::Logger::warning("DownloadManager: Không thể giải nén archive: {}", task.dest_path);
+            }
+        }
+
+        // Tự động cài đặt game vào Switch (SD Card) nếu bật auto_install
+        if (task.auto_install && !nsp_target.empty()) {
+            brls::Logger::info("DownloadManager: Bắt đầu tự động cài đặt game vào máy: {}", nsp_target);
+            bool installed = data::NspInstaller::installNsp(nsp_target, data::InstallStorage::SD_CARD);
+            if (installed) {
+                brls::sync([task]() {
+                    brls::Application::notify("Đã cài đặt thành công [" + task.title + "] vào màn hình chính Switch!");
+                });
             }
         }
     } else {

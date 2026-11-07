@@ -34,6 +34,7 @@ struct DownloadTask {
     int64_t downloaded_bytes = 0;
     int64_t total_bytes = 0;
     std::string error_message;
+    bool auto_install = true;
 };
 
 class DownloadManager {
