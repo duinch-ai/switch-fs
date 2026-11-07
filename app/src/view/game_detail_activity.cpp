@@ -42,13 +42,17 @@ brls::View* GameDetailActivity::createContentView() {
 
     if (!item.cover_url.empty()) {
         std::string url = item.cover_url;
+        cover_img->ptrLock();
         brls::async([cover_img, url]() {
-            std::string data = utils::HttpClient::get(url);
-            if (!data.empty()) {
-                brls::sync([cover_img, data]() {
+            std::string data = utils::HttpClient::isAborting() ? "" : utils::HttpClient::get(url, 6);
+            brls::sync([cover_img, data]() {
+                cover_img->ptrUnlock();
+                if (!data.empty() && !utils::HttpClient::isAborting()) {
+                    cover_img->clear();
+                    cover_img->setFreeTexture(true);
                     cover_img->setImageFromMem((const unsigned char*)data.data(), data.size());
-                });
-            }
+                }
+            });
         });
     }
     top_section->addView(cover_img);

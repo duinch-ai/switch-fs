@@ -26,26 +26,43 @@ brls::View* GridRow::getNextFocus(brls::FocusDirection direction, brls::View* cu
 
     if (direction == brls::FocusDirection::DOWN || direction == brls::FocusDirection::UP) {
         if (this->hasParent()) {
-            brls::View* next_row = this->getParent()->getNextFocus(direction, this);
-            if (next_row) {
-                auto* next_box = dynamic_cast<brls::Box*>(next_row);
-                if (next_box && !next_box->getChildren().empty()) {
-                    size_t target_col = std::min(col, next_box->getChildren().size() - 1);
-                    return next_box->getChildren()[target_col]->getDefaultFocus();
+            auto& siblings = this->getParent()->getChildren();
+            for (size_t r = 0; r < siblings.size(); ++r) {
+                if (siblings[r] == this) {
+                    if (direction == brls::FocusDirection::DOWN && r + 1 < siblings.size()) {
+                        auto* next_box = dynamic_cast<brls::Box*>(siblings[r + 1]);
+                        if (next_box && !next_box->getChildren().empty()) {
+                            size_t target_col = std::min(col, next_box->getChildren().size() - 1);
+                            if (auto* target = next_box->getChildren()[target_col]->getDefaultFocus()) {
+                                return target;
+                            }
+                        }
+                    } else if (direction == brls::FocusDirection::UP && r > 0) {
+                        auto* prev_box = dynamic_cast<brls::Box*>(siblings[r - 1]);
+                        if (prev_box && !prev_box->getChildren().empty()) {
+                            size_t target_col = std::min(col, prev_box->getChildren().size() - 1);
+                            if (auto* target = prev_box->getChildren()[target_col]->getDefaultFocus()) {
+                                return target;
+                            }
+                        }
+                    }
+                    break;
                 }
-                return next_row->getDefaultFocus();
             }
+            return this->getParent()->getNextFocus(direction, this);
         }
     } else if (direction == brls::FocusDirection::RIGHT) {
         if (col + 1 < children.size()) {
             return children[col + 1]->getDefaultFocus();
         } else if (this->hasParent()) {
-            // Wrap to next row, column 0
-            brls::View* next_row = this->getParent()->getNextFocus(brls::FocusDirection::DOWN, this);
-            if (next_row) {
-                auto* next_box = dynamic_cast<brls::Box*>(next_row);
-                if (next_box && !next_box->getChildren().empty()) {
-                    return next_box->getChildren()[0]->getDefaultFocus();
+            auto& siblings = this->getParent()->getChildren();
+            for (size_t r = 0; r + 1 < siblings.size(); ++r) {
+                if (siblings[r] == this) {
+                    auto* next_box = dynamic_cast<brls::Box*>(siblings[r + 1]);
+                    if (next_box && !next_box->getChildren().empty()) {
+                        return next_box->getChildren()[0]->getDefaultFocus();
+                    }
+                    break;
                 }
             }
         }
@@ -80,13 +97,21 @@ GameCard::GameCard(const api::GameItem& item) : item(item) {
 
     if (!item.cover_url.empty()) {
         std::string url = item.cover_url;
-        brls::async([this, url]() {
-            std::string data = utils::HttpClient::get(url);
-            if (!data.empty()) {
-                brls::sync([this, data]() {
-                    this->cover_image->setImageFromMem((const unsigned char*)data.data(), data.size());
-                });
+        ASYNC_RETAIN
+        brls::async([ASYNC_TOKEN, url]() {
+            if (utils::HttpClient::isAborting()) {
+                brls::sync([ASYNC_TOKEN]() { ASYNC_RELEASE });
+                return;
             }
+            std::string data = utils::HttpClient::get(url, 6);
+            brls::sync([ASYNC_TOKEN, data]() {
+                ASYNC_RELEASE
+                if (!data.empty() && !utils::HttpClient::isAborting()) {
+                    this->cover_image->clear();
+                    this->cover_image->setFreeTexture(true);
+                    this->cover_image->setImageFromMem((const unsigned char*)data.data(), data.size());
+                }
+            });
         });
     }
     this->addView(this->cover_image);

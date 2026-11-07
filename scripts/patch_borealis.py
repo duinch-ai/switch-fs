@@ -47,3 +47,26 @@ if start_idx != -1 and end_idx != -1:
     print("Patched sidebar.cpp successfully (indicator on right).")
 else:
     raise RuntimeError("Could not locate sidebarItemXML in sidebar.cpp")
+
+thread_cpp = pathlib.Path(__file__).resolve().parent.parent / "library/borealis/library/lib/core/thread.cpp"
+t_content = thread_cpp.read_text(encoding="utf-8")
+old_loop = """        for (auto task : m_tasks_copy)
+        {
+            task();
+        }
+
+        retro_sleep(500);"""
+new_loop = """        for (auto task : m_tasks_copy)
+        {
+            if (!task_loop_active) break;
+            task();
+        }
+
+        if (task_loop_active) retro_sleep(50);"""
+if old_loop in t_content:
+    thread_cpp.write_text(t_content.replace(old_loop, new_loop), encoding="utf-8")
+    print("Patched thread.cpp successfully (fast exit on stop).")
+elif "if (!task_loop_active) break;" in t_content:
+    print("thread.cpp already patched.")
+else:
+    raise RuntimeError("Could not locate task_loop in thread.cpp")
