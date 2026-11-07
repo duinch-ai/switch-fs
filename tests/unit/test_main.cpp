@@ -1,7 +1,9 @@
 #include "api/nswgf.hpp"
+#include "api/romm.hpp"
 #include "data/extractor/archive_extractor.hpp"
 #include "data/installer/nsp_installer.hpp"
 #include "data/settings_manager.hpp"
+#include "data/library_manager.hpp"
 #include "data/remote/host_resolver.hpp"
 #include <borealis.hpp>
 #include <iostream>
@@ -111,6 +113,49 @@ void testHostResolver() {
     std::cout << "    Resolved Send.now DDL: " << send_res.direct_url << " err: " << send_res.error << std::endl;
 }
 
+void testRommParser() {
+    std::cout << "[TEST] Running testRommParser..." << std::endl;
+
+    std::string sample_romm_json = R"({
+        "items": [
+            {
+                "id": 42,
+                "name": "The Legend of Zelda: Breath of the Wild",
+                "fs_name": "Zelda_BOTW.nsp",
+                "fs_size_bytes": 14495514624,
+                "path_cover_s": "/assets/romm/resources/roms/42/cover/small.webp",
+                "updated_at": "2026-11-07T10:00:00Z"
+            }
+        ]
+    })";
+
+    auto items = api::RommApi::parseRomsResponse(sample_romm_json, "http://192.168.1.100:8080/");
+    TEST_ASSERT(items.size() == 1, "RomM paginated response parsed 1 item");
+    TEST_ASSERT(items[0].id == 42, "RomM ID extracted");
+    TEST_ASSERT(items[0].title == "The Legend of Zelda: Breath of the Wild", "RomM name extracted");
+    TEST_ASSERT(items[0].format == "NSP", "RomM format detected from fs_name");
+    TEST_ASSERT(items[0].cover_url == "http://192.168.1.100:8080/assets/romm/resources/roms/42/cover/small.webp", "RomM cover URL normalized");
+    TEST_ASSERT(!items[0].download_links.empty() && items[0].download_links[0].host_name == "RomM", "RomM download link generated");
+}
+
+void testLibraryManager() {
+    std::cout << "[TEST] Running testLibraryManager..." << std::endl;
+
+    auto& lib = data::LibraryManager::getInstance();
+    api::GameItem g;
+    g.id = 99999;
+    g.title = "Hollow Knight Silksong";
+    g.format = "NSP";
+
+    if (lib.isFavorite(g.id, g.title)) {
+        lib.toggleFavorite(g);
+    }
+    bool added = lib.toggleFavorite(g);
+    TEST_ASSERT(added && lib.isFavorite(g.id, g.title), "LibraryManager adds favorite and persists");
+    bool removed = lib.toggleFavorite(g);
+    TEST_ASSERT(!removed && !lib.isFavorite(g.id, g.title), "LibraryManager removes favorite");
+}
+
 int main() {
     std::cout << "=== Running Switch FS Unit Test Suite ===" << std::endl;
     testNswgfParser();
@@ -118,6 +163,8 @@ int main() {
     testNspInstallerValidation();
     testSettingsManager();
     testHostResolver();
+    testRommParser();
+    testLibraryManager();
 
     std::cout << "=========================================" << std::endl;
     std::cout << "Results: " << tests_passed << "/" << tests_total << " tests passed." << std::endl;

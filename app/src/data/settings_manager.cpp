@@ -37,6 +37,10 @@ void SettingsManager::load() {
         this->settings.gofile_token = j.value("gofile_token", "");
         this->settings.onefichier_key = j.value("onefichier_key", "");
         this->settings.debrid_key = j.value("debrid_key", "");
+        this->settings.romm_url = j.value("romm_url", "");
+        this->settings.romm_username = j.value("romm_username", "");
+        this->settings.romm_password = j.value("romm_password", "");
+        this->settings.romm_token = j.value("romm_token", "");
         brls::Logger::info("SettingsManager: Đã nạp cấu hình từ {}", path);
     } catch (const std::exception& e) {
         brls::Logger::error("SettingsManager: Lỗi đọc file cấu hình: {}", e.what());
@@ -53,6 +57,10 @@ void SettingsManager::save() {
         j["gofile_token"] = this->settings.gofile_token;
         j["onefichier_key"] = this->settings.onefichier_key;
         j["debrid_key"] = this->settings.debrid_key;
+        j["romm_url"] = this->settings.romm_url;
+        j["romm_username"] = this->settings.romm_username;
+        j["romm_password"] = this->settings.romm_password;
+        j["romm_token"] = this->settings.romm_token;
 
         std::ofstream file(path);
         if (file.is_open()) {

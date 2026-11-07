@@ -11,6 +11,10 @@ struct AppSettings {
     std::string gofile_token;
     std::string onefichier_key;
     std::string debrid_key;
+    std::string romm_url;
+    std::string romm_username;
+    std::string romm_password;
+    std::string romm_token;
 };
 
 class SettingsManager {

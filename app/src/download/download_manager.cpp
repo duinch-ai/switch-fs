@@ -1,4 +1,6 @@
 #include "download/download_manager.hpp"
+#include "api/romm.hpp"
+#include "data/library_manager.hpp"
 #include "data/extractor/archive_extractor.hpp"
 #include "data/installer/nsp_installer.hpp"
 #include "data/remote/host_resolver.hpp"
@@ -63,7 +65,14 @@ void DownloadManager::enqueue(const api::GameItem& game, const std::string& host
             c = '_';
         }
     }
-    task.dest_path = getDownloadDir() + safe_title + ".rar";
+    std::string ext = ".rar";
+    if (host_name == "RomM") {
+        if (host_url.find(".nsz") != std::string::npos || game.format == "NSZ") ext = ".nsz";
+        else if (host_url.find(".xci") != std::string::npos || game.format == "XCI") ext = ".xci";
+        else if (host_url.find(".zip") != std::string::npos) ext = ".zip";
+        else ext = ".nsp";
+    }
+    task.dest_path = getDownloadDir() + safe_title + ext;
 
     this->tasks.push_back(task);
     brls::Logger::info("DownloadManager: Enqueued task '{}' from {}", task.title, host_name);
@@ -175,7 +184,12 @@ void DownloadManager::processTask(DownloadTask& task) {
     this->progress_event.fire(task);
 
     // 1. Resolve file hoster URL into direct binary stream (with automatic mirror fallback)
-    data::ResolvedStream stream = data::HostResolver::resolve(task.original_url, task.host_name, &this->should_abort_current);
+    data::ResolvedStream stream;
+    if (task.host_name == "RomM") {
+        stream.direct_url = task.original_url;
+    } else {
+        stream = data::HostResolver::resolve(task.original_url, task.host_name, &this->should_abort_current);
+    }
     if (!stream.ok() && !this->should_abort_current.load()) {
         brls::Logger::warning("DownloadManager: Primary host {} failed ({}), trying mirror fallbacks...",
                               task.host_name, stream.error);
@@ -249,6 +263,14 @@ void DownloadManager::processTask(DownloadTask& task) {
     curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, xferInfoCallback);
     curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ctx);
 
+    struct curl_slist* headers = nullptr;
+    if (task.host_name == "RomM") {
+        std::string auth = api::RommApi::getAuthHeader();
+        if (!auth.empty()) {
+            headers = curl_slist_append(headers, auth.c_str());
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        }
+    }
     if (!stream.cookie_header.empty()) {
         curl_easy_setopt(curl, CURLOPT_COOKIE, stream.cookie_header.c_str());
     }
@@ -264,6 +286,7 @@ void DownloadManager::processTask(DownloadTask& task) {
     long http_code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     fclose(fp);
+    if (headers) curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 
     this->current_active_id = 0;
@@ -304,6 +327,12 @@ void DownloadManager::processTask(DownloadTask& task) {
             brls::Logger::info("DownloadManager: Starting auto-install: {}", nsp_target);
             bool installed = data::NspInstaller::installNsp(nsp_target, data::InstallStorage::SD_CARD);
             if (installed) {
+                api::GameItem inst_game;
+                inst_game.id = task.id;
+                inst_game.title = task.title;
+                inst_game.cover_url = task.cover_url;
+                inst_game.format = "INSTALLED";
+                data::LibraryManager::getInstance().recordInstalled(inst_game);
                 brls::sync([task]() {
                     brls::Application::notify("Successfully installed [" + task.title + "] to Switch Home Menu!");
                 });

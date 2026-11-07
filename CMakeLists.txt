@@ -92,10 +92,12 @@ if (PLATFORM_DESKTOP)
     add_executable(switchfs_tests
         tests/unit/test_main.cpp
         app/src/api/nswgf.cpp
+        app/src/api/romm.cpp
         app/src/utils/http.cpp
         app/src/data/extractor/archive_extractor.cpp
         app/src/data/installer/nsp_installer.cpp
         app/src/data/settings_manager.cpp
+        app/src/data/library_manager.cpp
         app/src/data/remote/host_resolver.cpp
     )
     target_include_directories(switchfs_tests PRIVATE

@@ -1,5 +1,6 @@
 #include "view/game_detail_activity.hpp"
 #include "view/game_card.hpp"
+#include "data/library_manager.hpp"
 #include "download/download_manager.hpp"
 #include "utils/http.hpp"
 #include <borealis.hpp>
@@ -10,6 +11,7 @@ GameDetailActivity::GameDetailActivity(const api::GameItem& item) : item(item) {
 }
 
 static std::string getHostCompactIconLabel(const std::string& host_name) {
+    if (host_name == "RomM")     return "\xEE\x87\x9B  RomM";
     if (host_name == "Send.now") return "\xEE\x85\xA3  Send";
     if (host_name == "1fichier") return "\xEE\x8B\x80  1F";
     if (host_name == "Gofile")   return "\xEE\x8B\x87  GF";
@@ -96,10 +98,28 @@ brls::View* GameDetailActivity::createContentView() {
     }
 
     auto* hint_label = new brls::Label();
-    hint_label->setText("Direct download & auto-install supported (Send.now, 1fichier, Gofile + mirror fallback).");
+    hint_label->setText("Direct download & auto-install supported (RomM, Send.now, 1fichier, Gofile + mirror fallback).");
     hint_label->setFontSize(13);
     hint_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
+    hint_label->setMarginBottom(12);
     meta_col->addView(hint_label);
+
+    auto* fav_btn = new brls::Button();
+    bool is_fav = data::LibraryManager::getInstance().isFavorite(item.id, item.title);
+    fav_btn->setText(is_fav ? "\xEE\xA1\xBD  Favorited" : "\xEE\xA1\xBE  Add to Favorites");
+    fav_btn->setWidth(200);
+    fav_btn->setHeight(40);
+    fav_btn->setStyle(is_fav ? &brls::BUTTONSTYLE_PRIMARY : &brls::BUTTONSTYLE_DEFAULT);
+    api::GameItem captured_item = this->item;
+    fav_btn->registerClickAction([fav_btn, captured_item](brls::View*) {
+        bool now_fav = data::LibraryManager::getInstance().toggleFavorite(captured_item);
+        fav_btn->setText(now_fav ? "\xEE\xA1\xBD  Favorited" : "\xEE\xA1\xBE  Add to Favorites");
+        fav_btn->setStyle(now_fav ? &brls::BUTTONSTYLE_PRIMARY : &brls::BUTTONSTYLE_DEFAULT);
+        brls::Application::notify(now_fav ? ("Added [" + captured_item.title + "] to Favorites")
+                                          : ("Removed [" + captured_item.title + "] from Favorites"));
+        return true;
+    });
+    meta_col->addView(fav_btn);
 
     top_section->addView(meta_col);
     root_box->addView(top_section);

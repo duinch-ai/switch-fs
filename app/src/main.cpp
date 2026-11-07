@@ -6,6 +6,8 @@
 #include "view/main_activity.hpp"
 #include "view/home_tab.hpp"
 #include "view/search_tab.hpp"
+#include "view/romm_tab.hpp"
+#include "view/library_tab.hpp"
 #include "view/queue_tab.hpp"
 #include "view/settings_tab.hpp"
 
@@ -50,12 +52,22 @@ int main(int argc, char* argv[]) {
 
     brls::Application::createWindow("Switch FS");
 
+    if (auto* vg = brls::Application::getNVGContext()) {
+        int regular_font = brls::Application::getFont(brls::FONT_REGULAR);
+        int material_font = brls::Application::getFont(brls::FONT_MATERIAL_ICONS);
+        if (regular_font != brls::FONT_INVALID && material_font != brls::FONT_INVALID) {
+            nvgAddFallbackFontId(vg, regular_font, material_font);
+        }
+    }
+
     // Set global quit on ESC or controller + button
     brls::Application::setGlobalQuit(true);
 
     // Register XML views
     brls::Application::registerXMLView("HomeTab", switchfs::view::HomeTab::create);
     brls::Application::registerXMLView("SearchTab", switchfs::view::SearchTab::create);
+    brls::Application::registerXMLView("RommTab", switchfs::view::RommTab::create);
+    brls::Application::registerXMLView("LibraryTab", switchfs::view::LibraryTab::create);
     brls::Application::registerXMLView("QueueTab", switchfs::view::QueueTab::create);
     brls::Application::registerXMLView("SettingsTab", switchfs::view::SettingsTab::create);
 

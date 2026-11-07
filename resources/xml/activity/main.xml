@@ -13,6 +13,14 @@
             <SearchTab />
         </brls:Tab>
 
+        <brls:Tab label="&#xE1DB;">
+            <RommTab />
+        </brls:Tab>
+
+        <brls:Tab label="&#xE02F;">
+            <LibraryTab />
+        </brls:Tab>
+
         <brls:Tab label="&#xE2C4;">
             <QueueTab />
         </brls:Tab>
