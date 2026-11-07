@@ -61,19 +61,19 @@ brls::View* GridRow::getNextFocus(brls::FocusDirection direction, brls::View* cu
 GameCard::GameCard(const api::GameItem& item) : item(item) {
     this->setFocusable(true);
     this->setAxis(brls::Axis::COLUMN);
-    this->setWidth(250);
-    this->setHeight(340);
-    this->setMarginLeft(12);
-    this->setMarginRight(12);
-    this->setMarginTop(10);
-    this->setMarginBottom(10);
+    this->setWidth(196);
+    this->setHeight(254);
+    this->setMarginLeft(8);
+    this->setMarginRight(8);
+    this->setMarginTop(8);
+    this->setMarginBottom(8);
     this->setCornerRadius(8);
     this->setShadowType(brls::ShadowType::GENERIC);
 
-    // 1. Cover Image (Poster aspect ratio)
+    // 1. Cover Image (Compact thumbnail)
     this->cover_image = new brls::Image();
-    this->cover_image->setWidth(250);
-    this->cover_image->setHeight(265);
+    this->cover_image->setWidth(196);
+    this->cover_image->setHeight(196);
     this->cover_image->setCornerRadius(8);
     this->cover_image->setScalingType(brls::ImageScalingType::FIT);
     this->cover_image->setImageFromRes("img/borealis_256.png");
@@ -91,13 +91,14 @@ GameCard::GameCard(const api::GameItem& item) : item(item) {
     }
     this->addView(this->cover_image);
 
-    // 2. Title Label
+    // 2. Title Label (Single-line compact)
     this->title_label = new brls::Label();
-    this->title_label->setText(item.title);
-    this->title_label->setFontSize(16);
+    std::string short_title = item.title.length() > 22 ? (item.title.substr(0, 20) + "..") : item.title;
+    this->title_label->setText(short_title);
+    this->title_label->setFontSize(14);
     this->title_label->setMarginTop(6);
-    this->title_label->setMarginLeft(8);
-    this->title_label->setMarginRight(8);
+    this->title_label->setMarginLeft(6);
+    this->title_label->setMarginRight(6);
     this->title_label->setTextColor(brls::Application::getTheme()["brls/text"]);
     this->addView(this->title_label);
 
@@ -105,10 +106,10 @@ GameCard::GameCard(const api::GameItem& item) : item(item) {
     this->subtitle_label = new brls::Label();
     std::string sub = item.format + " • " + item.size;
     this->subtitle_label->setText(sub);
-    this->subtitle_label->setFontSize(13);
+    this->subtitle_label->setFontSize(12);
     this->subtitle_label->setMarginTop(2);
-    this->subtitle_label->setMarginLeft(8);
-    this->subtitle_label->setMarginRight(8);
+    this->subtitle_label->setMarginLeft(6);
+    this->subtitle_label->setMarginRight(6);
     this->subtitle_label->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
     this->addView(this->subtitle_label);
 

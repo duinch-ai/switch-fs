@@ -13,10 +13,12 @@ public:
 
     static brls::View* create();
 
-    void performSearch(const std::string& keyword);
+    void performSearch(const std::string& keyword, int page = 1);
 
 private:
     std::string current_keyword;
+    int current_page = 1;
+    bool has_more = true;
     bool is_searching = false;
 
     brls::Button* search_btn = nullptr;

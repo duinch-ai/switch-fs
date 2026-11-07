@@ -20,7 +20,6 @@ private:
     brls::Box* content_box = nullptr;
     brls::Box* grid_container = nullptr;
     brls::Label* status_label = nullptr;
-    brls::Button* load_more_btn = nullptr;
 };
 
 } // namespace switchfs::view

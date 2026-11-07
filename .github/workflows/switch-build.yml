@@ -23,6 +23,7 @@ jobs:
           git config --system --add safe.directory $GITHUB_WORKSPACE
       - name: Build NRO
         run: |
+          python3 scripts/patch_borealis.py
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DPLATFORM_SWITCH=ON \

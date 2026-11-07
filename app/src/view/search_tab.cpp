@@ -53,40 +53,64 @@ brls::View* SearchTab::create() {
     return new SearchTab();
 }
 
-void SearchTab::performSearch(const std::string& keyword) {
+void SearchTab::performSearch(const std::string& keyword, int page) {
     if (this->is_searching) return;
+    if (page > 1 && !this->has_more) return;
+
     this->is_searching = true;
     this->current_keyword = keyword;
+    this->current_page = page;
 
     this->search_btn->setText("🔍  " + keyword + " (Press A to change keyword)");
-    this->status_label->setText("Searching for '" + keyword + "' on nswgf.com...");
+    this->status_label->setText("Searching for '" + keyword + "' (Page " + std::to_string(page) + ")...");
 
-    // Clear previous results
-    this->grid_container->clearViews();
+    if (page == 1) {
+        this->has_more = true;
+        this->grid_container->clearViews();
+    }
 
-    brls::async([this, keyword]() {
-        auto games = api::NswgfApi::searchGames(keyword, 1, 24);
+    brls::async([this, keyword, page]() {
+        auto games = api::NswgfApi::searchGames(keyword, page, 20);
 
-        brls::sync([this, games, keyword]() {
+        brls::sync([this, games, keyword, page]() {
             this->is_searching = false;
             if (games.empty()) {
-                this->status_label->setText("No games found matching '" + keyword + "'.");
+                this->has_more = false;
+                if (page == 1) {
+                    this->status_label->setText("No games found matching '" + keyword + "'.");
+                }
                 return;
             }
 
-            this->status_label->setText("Found " + std::to_string(games.size()) + " results for '" + keyword + "':");
+            if (games.size() < 20) {
+                this->has_more = false;
+            }
 
-            // Arrange cards in 4-column rows
+            this->status_label->setText("Results for '" + keyword + "' (Page " + std::to_string(page) + "):");
+
+            // Arrange cards in 5-column rows with infinite scroll trigger
             GridRow* current_row = nullptr;
             for (size_t i = 0; i < games.size(); ++i) {
-                if (i % 4 == 0) {
+                if (i % 5 == 0) {
                     current_row = new GridRow();
-                    current_row->setMarginBottom(15);
+                    current_row->setMarginBottom(14);
                     this->grid_container->addView(current_row);
                 }
                 auto* card = GameCard::create(games[i]);
                 if (current_row) {
                     current_row->addView(card);
+                    GridRow* row_ptr = current_row;
+                    card->getFocusEvent()->subscribe([this, row_ptr](brls::View* v) {
+                        if (!this->has_more || this->is_searching) return;
+                        auto& children = this->grid_container->getChildren();
+                        if (children.size() >= 2) {
+                            if (row_ptr == children.back() || row_ptr == children[children.size() - 2]) {
+                                this->performSearch(this->current_keyword, this->current_page + 1);
+                            }
+                        } else if (!children.empty() && row_ptr == children.back()) {
+                            this->performSearch(this->current_keyword, this->current_page + 1);
+                        }
+                    });
                 }
             }
         });

@@ -45,7 +45,19 @@ static std::string extractCoverUrl(const std::string& html) {
                     src_pos++;
                     size_t end_quote = html.find(quote, src_pos);
                     if (end_quote != std::string::npos) {
-                        return html.substr(src_pos, end_quote - src_pos);
+                        std::string url = html.substr(src_pos, end_quote - src_pos);
+                        while (!url.empty() && (url.back() == ' ' || url.back() == '\t' || url.back() == '\r' || url.back() == '\n')) {
+                            url.pop_back();
+                        }
+                        while (!url.empty() && (url.front() == ' ' || url.front() == '\t')) {
+                            url.erase(0, 1);
+                        }
+                        // Downscale Google Blogger /s1600/ image to /s240/ thumbnail (~98% less RAM/VRAM)
+                        size_t s1600 = url.find("/s1600/");
+                        if (s1600 != std::string::npos) {
+                            url.replace(s1600, 7, "/s240/");
+                        }
+                        return url;
                     }
                 }
             }
