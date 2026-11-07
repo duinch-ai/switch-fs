@@ -47,6 +47,17 @@ if (PLATFORM_SWITCH)
     pkg_search_module(LIBARCHIVE REQUIRED libarchive)
     list(APPEND APP_PLATFORM_INCLUDE ${LIBARCHIVE_INCLUDE_DIRS})
     list(APPEND APP_PLATFORM_LIB ${LIBARCHIVE_LIBRARIES})
+else()
+    if (EXISTS "/opt/homebrew/opt/libarchive")
+        list(APPEND APP_PLATFORM_INCLUDE "/opt/homebrew/opt/libarchive/include")
+        list(APPEND APP_PLATFORM_LIB "/opt/homebrew/opt/libarchive/lib/libarchive.dylib")
+    else()
+        find_package(LibArchive)
+        if (LibArchive_FOUND)
+            list(APPEND APP_PLATFORM_INCLUDE ${LibArchive_INCLUDE_DIRS})
+            list(APPEND APP_PLATFORM_LIB ${LibArchive_LIBRARIES})
+        endif()
+    endif()
 endif()
 
 # building target
@@ -64,3 +75,24 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     borealis
     ${APP_PLATFORM_LIB}
 )
+
+if (APPLE)
+    target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreWLAN")
+endif()
+
+if (PLATFORM_DESKTOP)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_CURRENT_SOURCE_DIR}/resources
+        ${CMAKE_CURRENT_BINARY_DIR}/resources
+    )
+elseif (PLATFORM_SWITCH)
+    find_program(NX_NACPTOOL_EXE NAMES nacptool HINTS "${DEVKITPRO}/tools/bin")
+    find_program(NX_ELF2NRO_EXE NAMES elf2nro HINTS "${DEVKITPRO}/tools/bin")
+
+    add_custom_target(${PROJECT_NAME}.nro ALL DEPENDS ${PROJECT_NAME}
+        COMMAND ${NX_NACPTOOL_EXE} --create "${PROJECT_NAME}" "${PROJECT_AUTHOR}" "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_ALTER}" ${PROJECT_NAME}.nacp
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_RESOURCES} ${CMAKE_BINARY_DIR}/resources
+        COMMAND ${NX_ELF2NRO_EXE} ${PROJECT_NAME}.elf ${PROJECT_NAME}.nro --icon=${PROJECT_ICON} --nacp=${PROJECT_NAME}.nacp --romfsdir=${CMAKE_BINARY_DIR}/resources
+    )
+endif()

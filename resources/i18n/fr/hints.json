@@ -1,0 +1,23 @@
+{
+  "ok": "Valider",
+  "back": "Retour",
+  "cancel": "Annuler",
+  "exit": "Quitter",
+  "on": "Activé",
+  "off": "Désactivé",
+  "edit": "Modifier",
+  "delete": "Supprimer",
+  "save": "Enregistrer",
+  "submit": "Soumettre",
+  "input": "Veuillez saisir...",
+  "preset": "Préréglage",
+  "default": "Par défaut",
+  "current": "Version actuelle",
+  "success": "Succès",
+  "password": "Afficher/Masquer",
+  "retry": "Réessayer",
+  "exit_hint": "Voulez-vous quitter l'application ?",
+  "loading": "Chargement en cours",
+  "refresh": "Actualiser",
+  "quit": "Fermeture de l'application..."
+}

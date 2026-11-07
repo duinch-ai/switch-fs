@@ -1,0 +1,37 @@
+<brls:AppletFrame
+    iconInterpolation="linear"
+    footerHidden="false">
+    <brls:TabFrame
+        title="Switch FS"
+        icon="@res/icon.png">
+
+        <brls:Tab label="Trang chủ">
+            <HomeTab />
+        </brls:Tab>
+
+        <brls:Tab label="Tìm kiếm">
+            <SearchTab />
+        </brls:Tab>
+
+        <brls:Tab label="Hàng đợi">
+            <QueueTab />
+        </brls:Tab>
+
+        <brls:Separator />
+
+        <brls:Tab label="Cài đặt">
+            <brls:Box
+                width="auto"
+                height="auto"
+                axis="column"
+                padding="30">
+                <brls:Label
+                    width="auto"
+                    height="auto"
+                    text="Switch FS v0.1.0 — FreeShop Client for Nintendo Switch\nNguồn dữ liệu: nswgf.com"
+                    fontSize="20" />
+            </brls:Box>
+        </brls:Tab>
+
+    </brls:TabFrame>
+</brls:AppletFrame>

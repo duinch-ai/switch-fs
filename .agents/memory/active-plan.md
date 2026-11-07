@@ -1,7 +1,19 @@
-# switch-fs — Active Multi-Step Plan (`planning-with-files`)
+# Active Plan — Switch FS (Nintendo Switch FreeShop)
 
-## Goal
-- _No multi-step task active._
+## Objective
+Xây dựng ứng dụng FreeShop tải và cài đặt game Nintendo Switch kết nối trực tiếp API `nswgf.com` (15.800+ tựa game). Chạy thử nghiệm và hoàn thiện giả lập trên macOS trước khi build lên Switch phần cứng.
 
-## Planned File Slices
-- [ ] `path/to/file` — responsibility
+## Task Tracking
+- [x] [DONE] SFS-01: Cấu hình CMake Desktop macOS và build test cửa sổ Borealis giả lập
+- [x] [DONE] SFS-02: Hoàn thiện `NswgfApi` client (lấy danh sách, phân trang, regex parse metadata)
+- [x] [DONE] SFS-03: Xây dựng widget `GameCard` hiển thị bìa game và focus
+- [x] [DONE] SFS-04: Xây dựng `HomeTab` và phân trang danh sách game
+- [x] [DONE] SFS-05: Xây dựng `SearchTab` tìm kiếm game theo từ khóa
+- [x] [DONE] SFS-06: Xây dựng `GameDetailView` chi tiết game và danh sách link host
+- [x] [DONE] SFS-07: Xây dựng `DownloadManager` đa luồng libcurl với tiến độ & tốc độ
+- [x] [DONE] SFS-08: Tích hợp Gofile / 1fichier host selector & direct link handling
+- [x] [DONE] SFS-09: Xây dựng tab quản lý hàng đợi tải `DownloadQueueTab` (`QueueTab`)
+- [x] [DONE] SFS-10: Tích hợp `libarchive` giải nén file `.rar` tự động sau tải
+- [ ] [TODO] SFS-11: Kiểm thử toàn diện quy trình tải & giải nén trên macOS
+- [ ] [TODO] SFS-12: Tích hợp động cơ cài đặt `libnx` (ncm/ns/es) trên Nintendo Switch
+- [ ] [TODO] SFS-13: Build release `SwitchFS.nro` qua GitHub Actions CI và thử nghiệm trên Switch
