@@ -7,6 +7,7 @@
 #include "view/home_tab.hpp"
 #include "view/search_tab.hpp"
 #include "view/queue_tab.hpp"
+#include "view/settings_tab.hpp"
 
 #include <unistd.h>
 
@@ -41,6 +42,7 @@ int main(int argc, char* argv[]) {
     brls::Application::registerXMLView("HomeTab", switchfs::view::HomeTab::create);
     brls::Application::registerXMLView("SearchTab", switchfs::view::SearchTab::create);
     brls::Application::registerXMLView("QueueTab", switchfs::view::QueueTab::create);
+    brls::Application::registerXMLView("SettingsTab", switchfs::view::SettingsTab::create);
 
     // Push Main Activity
     brls::Application::pushActivity(new switchfs::view::MainActivity());

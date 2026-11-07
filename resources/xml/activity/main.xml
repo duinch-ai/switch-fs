@@ -20,17 +20,7 @@
         <brls:Separator />
 
         <brls:Tab label="Cài đặt">
-            <brls:Box
-                width="auto"
-                height="auto"
-                axis="column"
-                padding="30">
-                <brls:Label
-                    width="auto"
-                    height="auto"
-                    text="Switch FS v0.1.0 — FreeShop Client for Nintendo Switch\nNguồn dữ liệu: nswgf.com"
-                    fontSize="20" />
-            </brls:Box>
+            <SettingsTab />
         </brls:Tab>
 
     </brls:TabFrame>

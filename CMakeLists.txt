@@ -86,6 +86,31 @@ if (PLATFORM_DESKTOP)
         ${CMAKE_CURRENT_SOURCE_DIR}/resources
         ${CMAKE_CURRENT_BINARY_DIR}/resources
     )
+
+    # Unit Tests target
+    enable_testing()
+    add_executable(switchfs_tests
+        tests/unit/test_main.cpp
+        app/src/api/nswgf.cpp
+        app/src/utils/http.cpp
+        app/src/data/extractor/archive_extractor.cpp
+        app/src/data/installer/nsp_installer.cpp
+        app/src/data/settings_manager.cpp
+    )
+    target_include_directories(switchfs_tests PRIVATE
+        app/include
+        ${BOREALIS_LIBRARY}/include
+        ${BOREALIS_LIBRARY}/extern/nlohmann
+        ${APP_PLATFORM_INCLUDE}
+    )
+    target_link_libraries(switchfs_tests PRIVATE
+        borealis
+        ${APP_PLATFORM_LIB}
+    )
+    if (APPLE)
+        target_link_libraries(switchfs_tests PRIVATE "-framework CoreWLAN")
+    endif()
+    add_test(NAME SwitchFSTests COMMAND switchfs_tests)
 elseif (PLATFORM_SWITCH)
     find_program(NX_NACPTOOL_EXE NAMES nacptool HINTS "${DEVKITPRO}/tools/bin")
     find_program(NX_ELF2NRO_EXE NAMES elf2nro HINTS "${DEVKITPRO}/tools/bin")

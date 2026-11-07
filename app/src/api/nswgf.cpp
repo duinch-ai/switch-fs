@@ -52,7 +52,7 @@ GameItem NswgfApi::parsePostContent(uint64_t id, const std::string& title, const
     else item.format = "NSP";
 
     // 3. Bóc tách Size (Dung lượng)
-    std::regex size_regex(R"((?:SIZE|Size)[\s\S]*?<td[^>]*>[\s\S]*?<span[^>]*>([\d\.\s]+(?:GB|MB|KB)))", std::regex::icase);
+    std::regex size_regex(R"((?:size|dung lượng)[\s\S]*?(?:<td[^>]*>[\s\S]*?<span[^>]*>|:\s*)([\d\.]+\s*(?:GB|MB|KB)))", std::regex::icase);
     std::smatch size_match;
     if (std::regex_search(html_content, size_match, size_regex) && size_match.size() > 1) {
         item.size = size_match[1].str();
@@ -61,10 +61,13 @@ GameItem NswgfApi::parsePostContent(uint64_t id, const std::string& title, const
     }
 
     // 4. Bóc tách Language
-    std::regex lang_regex(R"((?:LANGUAGE|Language)[\s\S]*?<td[^>]*>[\s\S]*?<span[^>]*>([^<]+))", std::regex::icase);
+    std::regex lang_regex(R"((?:language|languages|ngôn ngữ)[\s\S]*?(?:<td[^>]*>[\s\S]*?<span[^>]*>|:\s*)([a-zA-Z,\s]+?)(?:<|$|\n|\r))", std::regex::icase);
     std::smatch lang_match;
     if (std::regex_search(html_content, lang_match, lang_regex) && lang_match.size() > 1) {
-        item.language = lang_match[1].str();
+        std::string l = lang_match[1].str();
+        // Trim trailing spaces/punctuation
+        while (!l.empty() && (l.back() == ' ' || l.back() == ',')) l.pop_back();
+        item.language = l;
     } else {
         item.language = "Multi";
     }
